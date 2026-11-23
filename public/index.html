@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda de Compromissos</title>
+  <meta name="theme-color" content="#2563eb">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    /* aplica o tema salvo antes de desenhar a página (evita "piscar") */
+    try { var t = localStorage.getItem('agenda-tema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topo">
+    <h1>📅 Agenda de Compromissos</h1>
+    <div class="acoes-topo">
+      <span id="relogio" class="relogio"></span>
+      <button id="btnTestarAlarme" class="btn sec" type="button" title="Abre a janela de alarme do Windows para conferir imagem e som">🔔 Testar alarme</button>
+      <button id="btnCalendarios" class="btn sec" type="button" title="Importar compromissos do Outlook e do Google">🔗 Calendários</button>
+      <button id="btnCelular" class="btn sec" type="button" title="Receber os alarmes no celular e no smartwatch">📱 Celular</button>
+      <button id="btnTema" class="btn sec" type="button" aria-label="Alternar tema claro/escuro">🌙 Tema escuro</button>
+    </div>
+  </header>
+
+  <div id="avisoOffline" class="faixa erro" hidden>
+    ⚠️ Sem comunicação com o servidor. Verifique se o <code>iniciar.bat</code> está em execução — é ele que dispara os alarmes.
+  </div>
+
+  <main class="layout">
+    <section class="cartao calendario">
+      <div class="cal-nav">
+        <button id="mesAnt" class="btn icone" type="button" aria-label="Mês anterior">‹</button>
+        <h2 id="mesTitulo"></h2>
+        <button id="mesProx" class="btn icone" type="button" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="cal-semana">
+        <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+      </div>
+      <div id="calDias" class="cal-dias"></div>
+      <button id="btnHoje" class="btn sec largo" type="button">Ir para hoje</button>
+    </section>
+
+    <section class="cartao">
+      <h2 id="diaTitulo"></h2>
+
+      <form id="form" class="form" autocomplete="off">
+        <div class="campo">
+          <label for="titulo">Título</label>
+          <input id="titulo" maxlength="120" required placeholder="Ex.: Reunião com fornecedor">
+        </div>
+        <div class="linha">
+          <div class="campo">
+            <label for="inicio">Horário inicial</label>
+            <input id="inicio" type="time" required>
+          </div>
+          <div class="campo">
+            <label for="fim">Horário final</label>
+            <input id="fim" type="time" required>
+          </div>
+          <div class="campo">
+            <label for="aviso">Avisar</label>
+            <select id="aviso">
+              <option value="0">No horário</option>
+              <option value="1">1 min antes</option>
+              <option value="5">5 min antes</option>
+              <option value="10" selected>10 min antes (padrão)</option>
+              <option value="15">15 min antes</option>
+              <option value="30">30 min antes</option>
+              <option value="45">45 min antes</option>
+              <option value="60">1 hora antes</option>
+              <option value="120">2 horas antes</option>
+              <option value="240">4 horas antes</option>
+              <option value="1440">1 dia antes</option>
+            </select>
+          </div>
+        </div>
+        <div id="conflito" class="alerta" hidden></div>
+        <div class="botoes">
+          <button id="btnSalvar" class="btn" type="submit">Agendar</button>
+          <button id="btnExcluirForm" class="btn perigo" type="button" hidden>Excluir</button>
+          <button id="btnCancelar" class="btn sec" type="button" hidden>Cancelar edição</button>
+        </div>
+      </form>
+
+      <h3 class="sub">Compromissos do dia</h3>
+      <ul id="listaDia" class="lista"></ul>
+    </section>
+
+    <section class="cartao geral">
+      <div class="geral-topo">
+        <h2>Compromissos cadastrados</h2>
+        <span class="dica">Clique numa linha para alterar ou excluir (somente compromissos não vencidos e ainda não alarmados).</span>
+        <button id="btnVencidos" class="btn sec peq" type="button" aria-pressed="false"></button>
+      </div>
+      <ul id="listaGeral" class="tabela"></ul>
+      <div id="paginacao" class="paginacao">
+        <label>Registros por página
+          <input id="pagTamanho" type="number" min="1" max="500" step="1" list="pagOpcoes" inputmode="numeric">
+          <datalist id="pagOpcoes"><option value="5"><option value="10"><option value="20"><option value="50"><option value="100"></datalist>
+        </label>
+        <span id="pagInfo" aria-live="polite"></span>
+        <div class="nav">
+          <button id="pagPrimeira" class="btn sec peq" type="button" title="Primeira página" aria-label="Primeira página">«</button>
+          <button id="pagAnterior" class="btn sec peq" type="button" title="Página anterior" aria-label="Página anterior">‹</button>
+          <label>Página <input id="pagAtual" type="number" min="1" step="1" inputmode="numeric"> de <span id="pagTotal">1</span></label>
+          <button id="pagProxima" class="btn sec peq" type="button" title="Próxima página" aria-label="Próxima página">›</button>
+          <button id="pagUltima" class="btn sec peq" type="button" title="Última página" aria-label="Última página">»</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- Calendários externos (Outlook / Google) -->
+  <dialog id="dlgCalendarios" class="dlg calendarios">
+    <h2>🔗 Calendários do Outlook e do Google</h2>
+    <p class="info">Os compromissos desses calendários entram na agenda com alarme, adiamento, aviso no celular e
+      detecção de conflito. Eles ficam <strong>somente leitura</strong>: para alterar ou excluir, use o Outlook/Google.</p>
+
+    <ul id="listaCal" class="lista-cal"></ul>
+    <p id="calSinc" class="info"></p>
+
+    <fieldset class="novo-cal">
+      <legend>Adicionar calendário</legend>
+      <div class="linha">
+        <div class="campo">
+          <label for="calNome">Nome</label>
+          <input id="calNome" maxlength="60" placeholder="Ex.: Outlook Intecom">
+        </div>
+        <div class="campo">
+          <label for="calAviso">Avisar</label>
+          <select id="calAviso">
+            <option value="0">No horário</option>
+            <option value="5">5 min antes</option>
+            <option value="10" selected>10 min antes</option>
+            <option value="15">15 min antes</option>
+            <option value="30">30 min antes</option>
+            <option value="60">1 hora antes</option>
+          </select>
+        </div>
+      </div>
+      <div class="campo">
+        <label for="calUrl">Link ICS / iCal</label>
+        <input id="calUrl" placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" autocomplete="off" spellcheck="false">
+      </div>
+      <button id="btnAdicionarCal" class="btn" type="button">Adicionar</button>
+    </fieldset>
+
+    <details class="avancado">
+      <summary>Como obter o link no Outlook (conta da empresa)</summary>
+      <ol class="passos">
+        <li>Abra o <strong>Outlook na Web</strong> (outlook.office.com) ou o novo Outlook e vá em <strong>Configurações ⚙️ › Calendário › Calendários compartilhados</strong>.</li>
+        <li>Em <strong>Publicar um calendário</strong>, escolha o calendário e a permissão <strong>“Pode exibir todos os detalhes”</strong> e clique em <strong>Publicar</strong>.</li>
+        <li>Copie o link <strong>ICS</strong> (não o HTML) e cole acima.</li>
+      </ol>
+      <p class="info">Se a opção “Publicar” não aparecer, a TI da empresa bloqueou a publicação de calendários.
+        A conta corporativa pode levar alguns minutos para refletir alterações no link publicado.</p>
+    </details>
+    <details class="avancado">
+      <summary>Como obter o link no Google Agenda</summary>
+      <ol class="passos">
+        <li>No computador, abra o <strong>Google Agenda</strong> › <strong>Configurações ⚙️</strong>.</li>
+        <li>À esquerda, em <strong>Configurações das minhas agendas</strong>, clique na agenda desejada.</li>
+        <li>Em <strong>Integrar agenda</strong>, copie o <strong>“Endereço secreto no formato iCal”</strong> e cole acima.</li>
+      </ol>
+    </details>
+    <p class="info aviso-priv">🔒 Os links funcionam como senha: ficam guardados só neste computador (dados\config.json).
+      Se o envio ao celular mostra o título, os títulos dos eventos importados também passam pelo ntfy.sh.</p>
+
+    <div class="botoes">
+      <button id="btnSincronizar" class="btn sec" type="button">🔄 Sincronizar agora</button>
+      <button id="btnFecharCal" class="btn sec" type="button">Fechar</button>
+    </div>
+  </dialog>
+
+  <!-- Alertas no celular / smartwatch -->
+  <dialog id="dlgCelular" class="dlg celular">
+    <h2>📱 Alertas no celular e smartwatch</h2>
+    <p class="info">No horário do alarme, a agenda também envia uma notificação ao celular pelo app gratuito <strong>ntfy</strong>.
+      O smartwatch recebe junto, pois espelha as notificações do celular.</p>
+
+    <ol class="passos">
+      <li>Instale o app <strong>ntfy</strong> no celular:
+        <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">Android</a> ·
+        <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">iPhone</a></li>
+      <li>No app, toque em <strong>+</strong> e inscreva-se no tópico abaixo (servidor padrão ntfy.sh):
+        <div class="topico">
+          <code id="celTopico">…</code>
+          <button id="btnCopiarTopico" class="btn sec peq" type="button">Copiar</button>
+        </div>
+      </li>
+      <li>Clique em <strong>Enviar teste</strong> e confira se a notificação chegou ao celular e ao relógio.</li>
+    </ol>
+
+    <div class="opcoes">
+      <label class="check"><input id="celAtivo" type="checkbox"> Enviar os alarmes para o celular</label>
+      <label class="check"><input id="celTitulo" type="checkbox"> Mostrar o título do compromisso na notificação</label>
+      <div class="campo">
+        <label for="celPrioridade">Prioridade da notificação</label>
+        <select id="celPrioridade">
+          <option value="5">Urgente: vibra de forma insistente</option>
+          <option value="4">Alta: vibração e som</option>
+          <option value="3">Normal</option>
+        </select>
+      </div>
+    </div>
+
+    <details class="avancado">
+      <summary>Adiar pelo celular/relógio (opcional — mesma rede Wi-Fi)</summary>
+      <p class="info">Adiciona à notificação os botões <em>Lembrar 5 / 2 / 1 min antes</em>. O celular precisa estar na mesma rede
+        deste computador, e é preciso executar <code>liberar-rede.bat</code> como administrador uma única vez e reiniciar o servidor.</p>
+      <label class="check"><input id="celAdiar" type="checkbox"> Mostrar botões de adiar na notificação</label>
+      <div class="campo">
+        <label for="celIp">Endereço deste computador na rede</label>
+        <select id="celIp"></select>
+      </div>
+      <p id="celRedeStatus" class="info"></p>
+    </details>
+
+    <div class="botoes">
+      <button id="btnNovoTopico" class="btn sec" type="button" title="Gera um novo tópico; será preciso se inscrever de novo no app">Gerar novo tópico</button>
+      <button id="btnTesteCelular" class="btn sec" type="button">Enviar teste</button>
+      <button id="btnSalvarCelular" class="btn" type="button">Salvar</button>
+      <button id="btnFecharCelular" class="btn sec" type="button">Fechar</button>
+    </div>
+  </dialog>
+
+  <!-- Confirmação de conflito -->
+  <dialog id="dlgConflito" class="dlg conflito">
+    <h2>⚠️ Conflito de agendamento</h2>
+    <p id="conflitoIntro" class="info"></p>
+    <ul id="conflitoItens"></ul>
+    <p class="pergunta">Deseja <span id="conflitoAcao">incluir</span> mesmo assim?</p>
+    <div class="botoes">
+      <button id="btnConflitoNao" class="btn sec" type="button">Não, voltar e ajustar</button>
+      <button id="btnConflitoSim" class="btn" type="button">Sim, incluir mesmo assim</button>
+    </div>
+  </dialog>
+
+  <!-- Recorrência -->
+  <dialog id="dlgRec" class="dlg">
+    <form id="formRec" method="dialog">
+      <h2>🔁 Criar recorrência</h2>
+      <p id="recInfo" class="info"></p>
+      <div class="linha">
+        <div class="campo">
+          <label for="recTipo">Repetir</label>
+          <select id="recTipo">
+            <option value="diaria">Diariamente</option>
+            <option value="semanal" selected>Semanalmente</option>
+            <option value="mensal">Mensalmente</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="recQtd">Nº de repetições</label>
+          <input id="recQtd" type="number" min="1" max="60" value="4" required>
+        </div>
+      </div>
+      <p id="recPrevia" class="previa"></p>
+      <div class="botoes">
+        <button id="btnRecOk" class="btn" type="button">Criar</button>
+        <button class="btn sec" value="cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

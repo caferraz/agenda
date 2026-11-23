@@ -1,0 +1,10 @@
+# Dados locais: NÃO versionar.
+# config.json guarda o link secreto do Outlook (ICS), o tópico do ntfy e o token;
+# os demais são compromissos pessoais, registros e estado da bandeja.
+# A pasta é recriada automaticamente pelo servidor.
+dados/
+
+# Temporários
+*.tmp
+*.bak
+*.log
