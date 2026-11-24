@@ -1,6 +1,6 @@
 /* Service worker: torna a agenda instalável (PWA) e abre a interface mesmo offline.
    Os dados (/api) nunca são cacheados: sempre vêm do servidor. */
-const CACHE = 'agenda-v10';
+const CACHE = 'agenda-v11';
 const ARQUIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icon.svg'];
 
 self.addEventListener('install', (e) => {

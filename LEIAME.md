@@ -53,6 +53,10 @@ alarme, adiamento, aviso no celular e detecção de conflito. A sincronização 
 - **Google Agenda:** Configurações › (sua agenda) › *Integrar agenda* › **Endereço secreto no formato iCal**.
 
 Regras:
+- **Link da reunião:** quando o evento tem link do **Teams**, **Google Meet**, **Zoom** ou **Webex** (no convite,
+  no local ou na descrição), aparece o botão **🎥 Entrar na reunião** nas listas (até o fim do compromisso),
+  na **janela de alarme** (abre o link e encerra o alarme) e na notificação do **celular** (botão e toque
+  na notificação). Para o celular, o link só é enviado se "Mostrar o título" estiver ligado.
 - Eventos importados são **somente leitura**: alterar/excluir/recorrência é feito no Outlook/Google.
 - Eventos recorrentes são expandidos (diário, semanal, mensal — ex.: "2ª terça", "última sexta" —, anual,
   com exceções e ocorrências remarcadas). Fusos horários são convertidos para o horário deste computador.

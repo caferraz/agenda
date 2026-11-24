@@ -250,6 +250,11 @@ input:focus, select:focus { outline: 2px solid var(--pri); outline-offset: 0; }
 .novo-cal legend { font-weight: 600; padding: 0 4px; }
 .novo-cal .btn { justify-self: start; }
 .aviso-priv { font-size: .8rem; margin-top: 10px; }
+/* Botão "Entrar na reunião" (link do Teams/Meet/Zoom) */
+.btn.reuniao { background: #5b5fc7; color: #fff; text-decoration: none; display: inline-block; white-space: nowrap; }
+.btn.reuniao:hover { filter: brightness(1.1); }
+.btn.reuniao:focus-visible { outline: 2px solid var(--pri); outline-offset: 2px; }
+.tabela .col-s .btn.reuniao { margin-left: 8px; font-style: normal; }
 .selo.origem { background: var(--sec); color: var(--txt); font-weight: 600; }
 
 /* Diálogos */

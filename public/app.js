@@ -70,6 +70,11 @@ function motivoBloqueio(c) {
   if (c.alarmado) return 'Compromisso já alarmado: não pode mais ser alterado ou excluído.';
   return '';
 }
+/* Botão "Entrar na reunião" (link do Teams/Meet/Zoom importado do Outlook/Google), até o fim do compromisso */
+function botaoReuniao(c, rotulo = '🎥 Entrar na reunião') {
+  if (!c.link || !/^https:\/\/[^\s"'<>\\]+$/.test(c.link) || dataHora(c.data, c.fim) <= new Date()) return '';
+  return `<a class="btn peq reuniao" href="${esc(c.link)}" target="_blank" rel="noopener noreferrer" title="Abrir o link da reunião">${rotulo}</a>`;
+}
 function sobrepoe(a, b) { return minutos(a.inicio) < minutos(b.fim) && minutos(a.fim) > minutos(b.inicio); }
 
 /* Momento do próximo alarme do compromisso (ou null se não houver mais) */
@@ -243,6 +248,7 @@ function renderDia() {
           <div class="meta">${textoStatus(c)}${serie}${marcaSobreposto(c)}</div>
         </div>
         <div class="acoes">
+          ${botaoReuniao(c)}
           <button class="btn sec peq" data-acao="editar" data-id="${c.id}" ${bloqueio}>Editar</button>
           <button class="btn perigo peq" data-acao="excluir" data-id="${c.id}" ${bloqueio}>Excluir</button>
           <button class="btn sec peq" data-acao="recorrencia" data-id="${c.id}" ${venc ? 'disabled title="Compromisso já vencido"' : (externo(c) ? `disabled title="${esc(motivoBloqueio(c))}"` : '')}>🔁 Recorrência</button>
@@ -281,7 +287,7 @@ function renderGeral() {
         <span class="col-h">${fmtDiaSemana(c.data)}</span>
         <span class="col-h">${c.inicio} – ${c.fim}</span>
         <span class="col-t">${selo}${esc(c.titulo)}${c.serieId ? ' 🔁' : ''}${seloOrigem(c)}${marcaSobreposto(c)}</span>
-        <span class="col-s">${textoStatus(c)}</span>
+        <span class="col-s">${textoStatus(c)}${botaoReuniao(c, '🎥 Entrar')}</span>
       </li>`;
   }).join('') + ocultos;
 }
@@ -606,6 +612,7 @@ function ligarEventos() {
   });
 
   const abrirDaLista = (ev) => {
+    if (ev.target.closest('a')) return;                 // clique no link da reunião: só abre o link
     const li = ev.target.closest('li[data-id]');
     if (!li) return;
     const c = estado.lista.find((x) => x.id === li.dataset.id);
@@ -625,6 +632,7 @@ function ligarEventos() {
   }
   $('listaGeral').addEventListener('click', abrirDaLista);
   $('listaGeral').addEventListener('keydown', (ev) => {
+    if (ev.target.closest('a')) return;
     if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirDaLista(ev); }
   });
 

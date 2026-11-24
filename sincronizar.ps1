@@ -33,6 +33,7 @@ namespace AgendaIcs
         public DateTime Inicio;   // horário local deste computador
         public DateTime Fim;
         public bool Recorrente;   // pertence a uma série (RRULE ou ocorrência remarcada)
+        public string Link;       // link para entrar na reunião online (Teams, Meet, Zoom, Webex) ou null
     }
 
     public class Resultado
@@ -56,6 +57,7 @@ namespace AgendaIcs
         public Prop DtStart, DtEnd, Duration, RRule, RecurrenceId;
         public List<Prop> ExDates = new List<Prop>();
         public bool Cancelado;
+        public string Descricao, Local, Url, LinkTeams;     // onde pode estar o link da reunião
     }
 
     class Fuso
@@ -169,6 +171,10 @@ namespace AgendaIcs
                     case "RECURRENCE-ID": atual.RecurrenceId = p; break;
                     case "EXDATE": atual.ExDates.Add(p); break;
                     case "STATUS": if (vu == "CANCELLED") atual.Cancelado = true; break;
+                    case "DESCRIPTION": atual.Descricao = Desescapar(p.Valor); break;
+                    case "LOCATION": atual.Local = Desescapar(p.Valor); break;
+                    case "URL": atual.Url = p.Valor.Trim(); break;
+                    case "X-MICROSOFT-SKYPETEAMSMEETINGURL": atual.LinkTeams = p.Valor.Trim(); break;
                 }
             }
 
@@ -275,7 +281,25 @@ namespace AgendaIcs
             o.Inicio = ini;
             o.Fim = ini + dur;
             o.Recorrente = ev.RRule != null || ev.RecurrenceId != null;
+            o.Link = AcharLink(ev);
             res.Ocorrencias.Add(o);
+        }
+
+        // Link de ingresso: só endereços https de serviços de reunião conhecidos
+        // (evita pegar links de "opções da reunião", "saiba mais", assinaturas de e-mail etc.)
+        static readonly Regex RxLink = new Regex(
+            @"https://(?:teams\.microsoft\.com/(?:l/meetup-join|meet)/|teams\.live\.com/meet/|meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}|[\w-]+\.zoom\.us/(?:j|my|w)/|[\w-]+\.webex\.com/(?:meet|join|[\w-]+/j\.php))[^\s""'<>\\]*",
+            RegexOptions.IgnoreCase);
+
+        static string AcharLink(Evento ev)
+        {
+            foreach (string fonte in new[] { ev.LinkTeams, ev.Url, ev.Local, ev.Descricao })
+            {
+                if (string.IsNullOrEmpty(fonte)) continue;
+                Match m = RxLink.Match(fonte);
+                if (m.Success) return m.Value.TrimEnd('.', ',', ';', ')', ']', '>');
+            }
+            return null;
         }
 
         // datas candidatas da regra de recorrência, em ordem crescente (no fuso do evento)
@@ -588,6 +612,7 @@ foreach ($cal in $calendarios) {
             [void]$eventos.Add([ordered]@{
                 id = Get-IdOcorrencia $cal.id $o.Uid $ini; calendarioId = $cal.id; origem = $cal.nome
                 titulo = $o.Titulo; data = $ini.ToString('yyyy-MM-dd', $Inv); inicio = $iniTxt; fim = $fimTxt; avisoMinutos = $aviso
+                link = $o.Link
             })
             $st.ocorrencias++
         }

@@ -61,7 +61,16 @@ function ConvertTo-Compromisso($o) {
         # eventos importados de calendários externos (Outlook/Google): somente leitura
         calendarioId = if ($o.calendarioId) { [string]$o.calendarioId } else { $null }
         origem       = if ($o.origem) { [string]$o.origem } else { $null }
+        # link para entrar na reunião online (Teams, Meet, Zoom...), vindo do Outlook/Google
+        link         = Get-LinkSeguro $o.link
     }
+}
+
+# Aceita só endereços https sem espaços/aspas (o link vem de fonte externa e vira botão na tela)
+function Get-LinkSeguro($u) {
+    $s = [string]$u
+    if ($s.Length -le 2048 -and $s -match '^https://[^\s"''<>\\]+$') { return $s }
+    return $null
 }
 
 $OpcoesAdiar = @(5, 2, 1)
@@ -76,7 +85,7 @@ $AlarmeScript = Join-Path $Raiz 'alarme.ps1'
 $Disparados = @{}
 
 function Show-AlarmeDesktop($c, [switch]$Teste) {
-    $o = @{ id = $c.id; titulo = $c.titulo; data = $c.data; inicio = $c.inicio; fim = $c.fim; teste = [bool]$Teste }
+    $o = @{ id = $c.id; titulo = $c.titulo; data = $c.data; inicio = $c.inicio; fim = $c.fim; teste = [bool]$Teste; link = (Get-LinkSeguro $c.link) }
     $b64 = [Convert]::ToBase64String($Utf8.GetBytes((ConvertTo-Json -InputObject $o -Compress)))
     Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @(
         '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
@@ -168,8 +177,9 @@ function Get-ConfigCelular {
     return $cfg
 }
 
-function Send-Ntfy($cfg, [string]$titulo, [string]$mensagem, [int]$prioridade, $acoes) {
+function Send-Ntfy($cfg, [string]$titulo, [string]$mensagem, [int]$prioridade, $acoes, [string]$aoTocar) {
     $msg = [ordered]@{ topic = $cfg.topico; title = $titulo; message = $mensagem; priority = $prioridade; tags = @('alarm_clock') }
+    if ($aoTocar) { $msg.click = $aoTocar }      # tocar na notificação abre o link (ex.: reunião do Teams)
     if (@($acoes).Count -gt 0) { $msg.actions = [object[]]@($acoes) }
     $corpo = $Utf8.GetBytes((ConvertTo-Json -InputObject $msg -Depth 5 -Compress))
     Invoke-RestMethod -Method Post -Uri ($cfg.servidor.TrimEnd('/') + '/') -Body $corpo `
@@ -186,8 +196,12 @@ function Send-AlertaCelular($c) {
         $titulo = if ($cfg.mostrarTitulo) { [string]$c.titulo } else { 'Compromisso agendado' }
         $texto = "$falta · $($ini.ToString('dd/MM', $Inv)) das $($c.inicio) às $($c.fim)"
         $acoes = @()
+        # link da reunião: só vai ao celular (via ntfy.sh) quando o título também pode ir
+        $link = if ($cfg.mostrarTitulo) { Get-LinkSeguro $c.link } else { $null }
+        if ($link) { $acoes += [ordered]@{ action = 'view'; label = 'Entrar na reunião'; url = $link; clear = $true } }
         if ($cfg.adiarPeloCelular -and $cfg.enderecoRede -and $script:RedeLiberada) {
             foreach ($n in $OpcoesAdiar) {
+                if ($acoes.Count -ge 3) { break }          # o ntfy aceita no máximo 3 botões
                 if ($ini.AddMinutes(-$n) -gt (Get-Date)) {
                     $acoes += [ordered]@{
                         action = 'http'; label = "Lembrar $n min antes"; method = 'POST'; clear = $true
@@ -196,7 +210,7 @@ function Send-AlertaCelular($c) {
                 }
             }
         }
-        Send-Ntfy $cfg ([char]0x23F0 + ' ' + $titulo) $texto ([int]$cfg.prioridade) $acoes
+        Send-Ntfy $cfg ([char]0x23F0 + ' ' + $titulo) $texto ([int]$cfg.prioridade) $acoes $link
         Write-Host '           -> alerta enviado ao celular' -ForegroundColor DarkYellow
     }
     catch { Write-Warning "Falha ao enviar alerta ao celular: $($_.Exception.Message)" }
@@ -257,6 +271,7 @@ function Update-Externos {
         $c = $existentes[$e.id]
         if ($c) {
             $c.titulo = [string]$e.titulo; $c.fim = [string]$e.fim; $c.origem = [string]$e.origem
+            $c.link = Get-LinkSeguro $e.link
             if (-not $c.alarmado) { $c.avisoMinutos = [int]$e.avisoMinutos }
         }
         else {
@@ -264,6 +279,7 @@ function Update-Externos {
                 id = $e.id; titulo = $e.titulo; data = $e.data; inicio = $e.inicio; fim = $e.fim
                 avisoMinutos = [int]$e.avisoMinutos; alarmado = $false; serieId = $null; adiadoPara = $null
                 criadoEm = $agora.ToString('s'); calendarioId = $e.calendarioId; origem = $e.origem
+                link = $e.link
             }
             # já começou: entra como alarmado, para não disparar alarmes atrasados na importação
             if ((Get-DataHora $novo.data $novo.inicio) -le $agora) { $novo.alarmado = $true }

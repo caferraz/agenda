@@ -96,6 +96,21 @@ $btnAbrir.Font = New-Object Drawing.Font($fonte, 9.5)
 $btnAbrir.Add_Click({ Start-Process "http://localhost:$Porta/" })
 $form.Controls.Add($btnAbrir)
 
+# reunião online (Teams/Meet/Zoom importada do Outlook/Google): abre o link e encerra o alarme
+$Link = [string]$c.link
+if ($Link -match '^https://[^\s"''<>\\]+$') {
+    $btnReuniao = New-Object Windows.Forms.Button
+    $btnReuniao.Text = 'Entrar na reunião'
+    $btnReuniao.Location = New-Object Drawing.Point(148, 242)
+    $btnReuniao.Size = New-Object Drawing.Size(144, 34)
+    $btnReuniao.Font = New-Object Drawing.Font($fonte, 9.5, [Drawing.FontStyle]::Bold)
+    $btnReuniao.BackColor = [Drawing.Color]::FromArgb(91, 95, 199)
+    $btnReuniao.ForeColor = [Drawing.Color]::White
+    $btnReuniao.FlatStyle = 'Flat'
+    $btnReuniao.Add_Click({ Start-Process $Link; $form.Close() })
+    $form.Controls.Add($btnReuniao)
+}
+
 $btnOk = New-Object Windows.Forms.Button
 $btnOk.Text = 'OK, ciente'
 $btnOk.Location = New-Object Drawing.Point(300, 242)
