@@ -105,6 +105,7 @@ h1, h2, h3 { margin: 0; }
   border: 1px solid transparent; border-radius: 8px;
   background: transparent; color: var(--txt);
   font: inherit; cursor: pointer;
+  padding: 0 0 12px;            /* sobe o número para dar lugar ao contador embaixo */
 }
 .dia:hover:not(:disabled) { border-color: var(--pri); }
 .dia.vazio { visibility: hidden; }
@@ -112,9 +113,9 @@ h1, h2, h3 { margin: 0; }
 .dia.hoje { background: var(--hoje); font-weight: 700; }
 .dia.sel { background: var(--sel); color: #fff; font-weight: 700; }
 .dia .qtd {
-  position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
-  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
-  font-size: .65rem; line-height: 16px;
+  position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
+  font-size: .62rem; line-height: 15px; font-weight: 700;
   background: var(--perigo); color: #fff;
 }
 .dia.sel .qtd { background: #fff; color: var(--sel); }
